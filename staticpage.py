@@ -35,7 +35,7 @@ class StaticPage(pulumi.ComponentResource):
         bucket_website = s3.BucketWebsiteConfiguration(
             name,
             bucket=bucket.bucket,
-            index_document={"suffix": "index"},
+            index_document={"suffix": "index.html"},
         )
 
 

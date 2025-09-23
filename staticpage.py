@@ -16,8 +16,7 @@ from pulumi import ResourceOptions
 from pulumi_aws import s3
 
 class StaticPageArgs(TypedDict):
-    index_content: pulumi.Input[str]
-    """HTML content for index.html (e.g., '<h1>Hello</h1>')."""
+    pages: pulumi.Input[dict[str, str]]
 
 class StaticPage(pulumi.ComponentResource):
     endpoint: pulumi.Output[str]
@@ -41,13 +40,24 @@ class StaticPage(pulumi.ComponentResource):
         )
 
 
-        s3.BucketObject(
-            f"{name}-index",
-            bucket=bucket.bucket,
-            key="index.html",
-            content=args["index_content"],
-            content_type="text/html",
-        )
+        # s3.BucketObject(
+        #     f"{name}-index",
+        #     bucket=bucket.bucket,
+        #     key="index.html",
+        #     content=args["index_content"],
+        #     content_type="text/html",
+        # )
+
+        for filename, content in args['pages'].items():
+            s3.BucketObject(
+                f'{name}-{filename.replace(".", "-")}',
+                bucket=bucket.bucket,
+                key=filename,               # filename becomes S3 object key
+                content=content,            # HTML content
+                content_type='text/html',
+                opts=ResourceOptions(parent=bucket)
+            )
+
 
         s3.BucketPublicAccessBlock(
             f"{name}-public-access-block",

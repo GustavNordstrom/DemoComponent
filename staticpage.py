@@ -38,8 +38,7 @@ class StaticPage(pulumi.ComponentResource):
         bucket_website = s3.BucketWebsiteConfiguration(
             f'{name}-website',
             bucket=bucket.bucket,                       # bucket name string
-            index_document={"suffix": "index.html"},    # default document
-            opts=ResourceOptions(parent=bucket))
+            index_document={"suffix": "index.html"})
 
         # 3) Upload the index.html object into the bucket with the provided content.
         s3.BucketObject(
@@ -47,23 +46,20 @@ class StaticPage(pulumi.ComponentResource):
             bucket=bucket.bucket,
             key='index.html',
             content=args.get("index_content"),          # the page body
-            content_type='text/html',
-            opts=ResourceOptions(parent=bucket))
+            content_type='text/html')
 
         # 4) Allow public reads (for demo!). First, do not block public ACLs.
         bucket_public_access_block = s3.BucketPublicAccessBlock(
             f'{name}-public-access-block',
             bucket=bucket.id,                           # bucket ID (not name)
-            block_public_acls=False,                    # permit public ACLs
-            opts=ResourceOptions(parent=bucket))
+            block_public_acls=False)
 
         # 5) Attach a bucket policy that allows anyone (Principal "*") to GET objects.
         #    We depend on the public access block so the policy is actually effective.
         s3.BucketPolicy(
             f'{name}-bucket-policy',
             bucket=bucket.bucket,
-            policy=bucket.bucket.apply(_allow_getobject_policy),
-            opts=ResourceOptions(parent=bucket, depends_on=[bucket_public_access_block]))
+            policy=bucket.bucket.apply(_allow_getobject_policy))
 
         # Expose the website endpoint as this component's output.
         self.endpoint = bucket_website.website_endpoint

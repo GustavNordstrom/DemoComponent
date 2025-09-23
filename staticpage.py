@@ -1,13 +1,3 @@
-# Demo: a minimal Pulumi Component that creates a **public** S3 static website.
-# Usage:
-#   1) Set AWS creds; create a new Pulumi project/stack.
-#   2) Put this file in your program, then:
-#        static = StaticPage("demo", {"index_content": "<h1>Hello Pulumi!</h1>"})
-#        pulumi.export("url", static.endpoint)
-#   3) pulumi up → open the printed URL.
-#
-# NOTE: This makes bucket objects world-readable for demo purposes.
-
 import json
 from typing import Optional, TypedDict
 
@@ -20,7 +10,6 @@ class StaticPageArgs(TypedDict):
 
 class StaticPage(pulumi.ComponentResource):
     endpoint: pulumi.Output[str]
-    """Public website URL (e.g., http://<bucket>.s3-website-<region>.amazonaws.com)."""
 
     def __init__(self,
                  name: str,
@@ -33,21 +22,6 @@ class StaticPage(pulumi.ComponentResource):
         # Create a bucket
         bucket = s3.Bucket(name)
 
-        bucket_website = s3.BucketWebsiteConfiguration(
-            f"{name}-website",
-            bucket=bucket.bucket,
-            index_document={"suffix": "index.html"},
-        )
-
-
-        # s3.BucketObject(
-        #     f"{name}-index",
-        #     bucket=bucket.bucket,
-        #     key="index.html",
-        #     content=args["index_content"],
-        #     content_type="text/html",
-        # )
-
         for filename, content in args['pages'].items():
             s3.BucketObject(
                 f'{name}-{filename.replace(".", "-")}',
@@ -57,6 +31,12 @@ class StaticPage(pulumi.ComponentResource):
                 content_type='text/html',
                 opts=ResourceOptions(parent=bucket)
             )
+
+        bucket_website = s3.BucketWebsiteConfiguration(
+            name,
+            bucket=bucket.bucket,
+            index_document={"suffix": "index"},
+        )
 
 
         s3.BucketPublicAccessBlock(

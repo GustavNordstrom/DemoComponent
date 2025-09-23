@@ -1,3 +1,13 @@
+# Demo: a minimal Pulumi Component that creates a **public** S3 static website.
+# Usage:
+#   1) Set AWS creds; create a new Pulumi project/stack.
+#   2) Put this file in your program, then:
+#        static = StaticPage("demo", {"index_content": "<h1>Hello Pulumi!</h1>"})
+#        pulumi.export("url", static.endpoint)
+#   3) pulumi up → open the printed URL.
+#
+# NOTE: This makes bucket objects world-readable for demo purposes.
+
 import json
 from typing import Optional, TypedDict
 
@@ -7,65 +17,65 @@ from pulumi_aws import s3
 
 class StaticPageArgs(TypedDict):
     index_content: pulumi.Input[str]
-    """The HTML content for index.html."""
+    """HTML content for index.html (e.g., '<h1>Hello</h1>')."""
 
 class StaticPage(pulumi.ComponentResource):
     endpoint: pulumi.Output[str]
-    """The URL of the static website."""
+    """Public website URL (e.g., http://<bucket>.s3-website-<region>.amazonaws.com)."""
 
     def __init__(self,
                  name: str,
                  args: StaticPageArgs,
                  opts: Optional[ResourceOptions] = None) -> None:
 
+        # Register this as a custom component so Pulumi treats it as one logical resource.
         super().__init__('static-page-component:index:StaticPage', name, {}, opts)
 
-        # Create a bucket
-        bucket = s3.Bucket(
-            f'{name}-bucket',
-            opts=ResourceOptions(parent=self))
+        # 1) Create the S3 bucket that will host our site.
+        bucket = s3.Bucket(f'{name}-bucket')
 
-        # Configure the bucket website
+        # 2) Turn on S3 static website hosting with index.html as the default doc.
         bucket_website = s3.BucketWebsiteConfiguration(
             f'{name}-website',
-            bucket=bucket.bucket,
-            index_document={"suffix": "index.html"},
+            bucket=bucket.bucket,                       # bucket name string
+            index_document={"suffix": "index.html"},    # default document
             opts=ResourceOptions(parent=bucket))
 
-        # Create a bucket object for the index document
+        # 3) Upload the index.html object into the bucket with the provided content.
         s3.BucketObject(
             f'{name}-index-object',
             bucket=bucket.bucket,
             key='index.html',
-            content=args.get("index_content"),
+            content=args.get("index_content"),          # the page body
             content_type='text/html',
             opts=ResourceOptions(parent=bucket))
 
-        # Create a public access block for the bucket
+        # 4) Allow public reads (for demo!). First, do not block public ACLs.
         bucket_public_access_block = s3.BucketPublicAccessBlock(
             f'{name}-public-access-block',
-            bucket=bucket.id,
-            block_public_acls=False,
+            bucket=bucket.id,                           # bucket ID (not name)
+            block_public_acls=False,                    # permit public ACLs
             opts=ResourceOptions(parent=bucket))
 
-        # Set the access policy for the bucket so all objects are readable.
+        # 5) Attach a bucket policy that allows anyone (Principal "*") to GET objects.
+        #    We depend on the public access block so the policy is actually effective.
         s3.BucketPolicy(
             f'{name}-bucket-policy',
             bucket=bucket.bucket,
             policy=bucket.bucket.apply(_allow_getobject_policy),
             opts=ResourceOptions(parent=bucket, depends_on=[bucket_public_access_block]))
 
+        # Expose the website endpoint as this component's output.
         self.endpoint = bucket_website.website_endpoint
 
-        # By registering the outputs on which the component depends, we ensure
-        # that the Pulumi CLI will wait for all the outputs to be created before
-        # considering the component itself to have been created.
+        # Tell Pulumi which outputs represent this component so it waits for them.
         self.register_outputs({
             'endpoint': bucket_website.website_endpoint
         })
 
 
 def _allow_getobject_policy(bucket_name: str) -> str:
+    """Return a bucket policy JSON that allows public reads of all objects."""
     return json.dumps({
         'Version': '2012-10-17',
         'Statement': [
@@ -74,7 +84,7 @@ def _allow_getobject_policy(bucket_name: str) -> str:
                 'Principal': '*',
                 'Action': ['s3:GetObject'],
                 'Resource': [
-                    f'arn:aws:s3:::{bucket_name}/*',  # policy refers to bucket name explicitly
+                    f'arn:aws:s3:::{bucket_name}/*',  # allow GET for any key under the bucket
                 ],
             },
         ],

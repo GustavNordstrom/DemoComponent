@@ -36,6 +36,7 @@ class StaticPage(pulumi.ComponentResource):
             name,
             bucket=bucket.bucket,
             index_document={"suffix": "index.html"},
+            opts=ResourceOptions(parent=bucket)
         )
 
 
@@ -43,6 +44,7 @@ class StaticPage(pulumi.ComponentResource):
             f"{name}-public-access-block",
             bucket=bucket.id,
             block_public_acls=False,
+            opts=ResourceOptions(parent=bucket)
         )
 
 
@@ -58,6 +60,7 @@ class StaticPage(pulumi.ComponentResource):
                     "Resource": f"arn:aws:s3:::{b}/*",
                 }],
             })),
+            opts=ResourceOptions(parent=bucket)
         )
 
         self.endpoint = bucket_website.website_endpoint

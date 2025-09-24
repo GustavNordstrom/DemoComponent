@@ -20,11 +20,11 @@ class StaticPage(pulumi.ComponentResource):
         super().__init__('static-page-component:index:StaticPage', name, {}, opts)
 
         # Create a bucket
-        bucket = s3.Bucket(name)
+        bucket = s3.Bucket(f"{name}-Bucket", opts=ResourceOptions(parent=self))
 
         for filename, content in args['pages'].items():
             s3.BucketObject(
-                f'{name}-{filename.replace(".", "-")}',
+                f"{name}-{filename.replace(".", "-")}-BucketObject",
                 bucket=bucket.bucket,
                 key=filename,               # filename becomes S3 object key
                 content=content,            # HTML content
@@ -33,7 +33,7 @@ class StaticPage(pulumi.ComponentResource):
             )
 
         bucket_website = s3.BucketWebsiteConfiguration(
-            name,
+            f"{name}-BucketWebsiteConfiguration",
             bucket=bucket.bucket,
             index_document={"suffix": "index.html"},
             opts=ResourceOptions(parent=bucket)
@@ -41,7 +41,7 @@ class StaticPage(pulumi.ComponentResource):
 
 
         s3.BucketPublicAccessBlock(
-            f"{name}-public-access-block",
+            f"{name}-BucketPublicAccessBlock",
             bucket=bucket.id,
             block_public_acls=False,
             opts=ResourceOptions(parent=bucket)
@@ -49,10 +49,9 @@ class StaticPage(pulumi.ComponentResource):
 
 
         s3.BucketPolicy(
-            f"{name}-policy",
+            f"{name}-BucketPolicy",
             bucket=bucket.bucket,
             policy=bucket.bucket.apply(lambda b: json.dumps({
-                "Version": "2012-10-17",
                 "Statement": [{
                     "Effect": "Allow",
                     "Principal": "*",
